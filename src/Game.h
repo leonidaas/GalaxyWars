@@ -17,7 +17,7 @@ struct BulletConfig {
 
 class Game {
     sf::RenderWindow m_window;
-    EntityManager m_entities;
+    EntityManager m_entityManager;
     sf::Font m_font;
     // sf::Text m_text;
     PlayerConfig m_playerConfig;
@@ -47,6 +47,8 @@ class Game {
     void spawnSmallEnemies(std::shared_ptr<Entity> entity);
     void spawnBullet(std::shared_ptr<Entity> entity, const Vec2 &mousePos);
     void spawnSpecialWeapon(std::shared_ptr<Entity> entity);
+
+    void loadFromFile(const std::string &filename);
 
 public:
     Game(const std::string &config);

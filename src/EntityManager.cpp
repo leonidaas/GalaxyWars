@@ -1,54 +1,44 @@
+#include "EntityManager.h"
 #include "./Entity.hpp"
-#include <fstream>
 #include <map>
 
-using EntityVec = std::vector<std::shared_ptr<Entity>>;
+std::shared_ptr<Entity> EntityManager::addEntity(const std::string &tag) {
 
-class EntityManager {
-    EntityVec m_entities;
-    EntityVec m_entitiesToAdd;
-    std::map<std::string, EntityVec> m_entityMap;
-    size_t m_totalEntities = 0;
+    // you can't use "make_shared" here because Entity is a private/friend class
+    // and therefor you need to create it with the new keyword but it still has
+    // the same functionality
+    auto entity = std::shared_ptr<Entity>(new Entity(m_totalEntities++, tag));
+    m_entitiesToAdd.push_back(entity);
 
-    void removeDeadEntities(EntityVec &vec) {}
+    return entity;
+}
 
-public:
-    EntityManager() = default;
-    std::shared_ptr<Entity> addEntity(const std::string &tag);
-    EntityVec &getEntities();
-    EntityVec &getEntities(const std::string &tag);
+EntityVec &EntityManager::getEntities() { return m_entities; }
+EntityVec &EntityManager::getEntities(const std::string &tag) {
+    return m_entityMap[tag];
+}
 
-    void update() {
-        // add entities from m_entitiesToAdd
-        // add them to the vector of all entities
-        // add them tot he vector inside the map, with the tag as a key
+void EntityManager::removeDeadEntities(EntityVec &vec) {
 
-        removeDeadEntities(m_entities);
+    m_entities.erase(
+        std::remove_if(vec.begin(), vec.end(),
+                       [](const auto &e) { return !e->isActive(); }),
+        m_entities.end());
+}
 
-        for (auto &[tag, entityVec] : m_entityMap) {
-            removeDeadEntities(entityVec);
-        }
+void EntityManager::update() {
+
+    for (auto e : m_entitiesToAdd) {
+        m_entities.push_back(e);
+
+        m_entityMap[e->tag()].push_back(e);
     }
 
-    void loadFromFile(const std::string &filename);
+    m_entitiesToAdd.clear(); // remove them as they are added to m_entities
 
-    // when iterating over a vector / list
-    // for(auto& a : vec) -> best practice because otherwise the content would
-    // be copied
-    //
-    // const std::vector<Student>& getStudents() const { const in the beginning
-    // means that the result can not be changed, const at the end means, it wont
-    // change the input
-    //  return m_students
-    // }
-};
-/* void EntityManager::loadFromFile(const std::string &filename) {
-    std::ifstream fin(filename);
-    std::string first, last;
-    int id;
-    float avg;
+    removeDeadEntities(m_entities);
 
-    while (fin >> first >> last >> id >> avg) {
-        std::cout << first << last << id << avg << std::endl;
+    for (auto &[tag, entityVec] : m_entityMap) {
+        removeDeadEntities(entityVec);
     }
-}*/
+}

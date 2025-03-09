@@ -61,11 +61,13 @@ public:
 };
 
 class CTransform : public Component {
+public:
     Vec2 pos = {0.0, 0.0};
     Vec2 velocity = {0.0, 0.0};
-    Vec2 scale;
+    // Vec2 scale = 1;
     float angle = 0;
 
+    CTransform() = default;
     CTransform(const Vec2 &p, const Vec2 &v, float a)
         : pos(p), velocity(v), angle(a) {}
 };
