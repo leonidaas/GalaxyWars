@@ -19,10 +19,9 @@ EntityVec &EntityManager::getEntities(const std::string &tag) {
 
 void EntityManager::removeDeadEntities(EntityVec &vec) {
 
-    m_entities.erase(
-        std::remove_if(vec.begin(), vec.end(),
-                       [](const auto &e) { return !e->isActive(); }),
-        m_entities.end());
+    vec.erase(std::remove_if(vec.begin(), vec.end(),
+                             [](const auto &e) { return !e->isActive(); }),
+              vec.end());
 }
 
 void EntityManager::update() {
@@ -35,9 +34,9 @@ void EntityManager::update() {
 
     m_entitiesToAdd.clear(); // remove them as they are added to m_entities
 
-    // removeDeadEntities(m_entities);
+    removeDeadEntities(m_entities);
 
-    /* for (auto &[tag, entityVec] : m_entityMap) {
-         removeDeadEntities(entityVec);
-     }*/
+    for (auto &[tag, entityVec] : m_entityMap) {
+        removeDeadEntities(entityVec);
+    }
 }

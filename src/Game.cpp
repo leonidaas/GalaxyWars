@@ -81,6 +81,7 @@ void Game::spawnEnemy() {
 
     entity->add<CShape>(radius, 8, sf::Color(10, 10, 10), sf::Color(255, 0, 0),
                         4.f);
+    entity->add<CCollision>(radius);
 
     entity->add<CInput>();
 
@@ -98,36 +99,23 @@ void Game::spawnSmallEnemies(std::shared_ptr<Entity> e) {
 }
 
 void Game::spawnBullet(std::shared_ptr<Entity> entity, const Vec2 &target) {
-    // implement the spawning of a bullet which travels toward target
-    // bullet speed is given as a sclar speed
-    // you must set the velocity by using formula in notes
-    //
-    // cos(zeta) = X / R
-    // sin(zeta) = Y / R
-    // Vec2 velocity (S*cos(o), S*sin(o)) S = speed;
-    //
-    // TODO: Implement a bullet that starts at entity and travels to target
     auto bullet = m_entityManager.addEntity("bullet");
 
     auto distance = target - entity->get<CTransform>().pos;
 
-    std::cout << "Target X: " << distance.x << std::endl;
-    std::cout << "Target Y: " << distance.y << std::endl;
-
     distance.normalize();
 
-    std::cout << "Normalized Target X: " << distance.x << std::endl;
-    std::cout << "Normalized Target Y: " << distance.y << std::endl;
-    // auto angle = std::atan2f(distance.y, distance.x);
-    // auto angleDegrees = angle * 180.f / M_PI;
-    //
+    // TODO: extract to config
     auto speed = 10.f;
 
     Vec2 velocity = Vec2(speed * distance.x, speed * distance.y);
 
+    auto radius = 10;
+
     bullet->add<CTransform>(entity->get<CTransform>().pos, velocity, 0);
-    bullet->add<CShape>(10, 8, sf::Color(255, 255, 255), sf::Color(255, 0, 0),
-                        2);
+    bullet->add<CShape>(radius, 8, sf::Color(255, 255, 255),
+                        sf::Color(255, 0, 0), 2);
+    bullet->add<CCollision>(radius);
 }
 
 void Game::sRender() {
@@ -191,15 +179,10 @@ void Game::sMovement() {
 void Game::sBulletMovement() {
 
     for (auto e : m_entityManager.getEntities("bullet")) {
-
-        /*auto angle = e->get<CTransform>().angle;
-        auto newPositionX = e->get<CTransform>().pos.x +
-                            e->get<CTransform>().velocity.x * cos(angle);
-        auto newPositionY = e->get<CTransform>().pos.y +
-                            e->get<CTransform>().velocity.y * sin(angle);*/
-
         e->get<CTransform>().pos.x += e->get<CTransform>().velocity.x;
         e->get<CTransform>().pos.y += e->get<CTransform>().velocity.y;
+
+        auto position = e->get<CTransform>().pos;
     }
 }
 
@@ -263,14 +246,6 @@ void Game::sUserInput() {
         }
 
         if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) {
-
-            std::cout << "X: " << sf::Mouse::getPosition(m_window).x
-                      << std::endl;
-            std::cout << "Y: " << sf::Mouse::getPosition(m_window).y
-                      << std::endl;
-
-            // spawnBullet(m_player, Vec2(mouseWorldPos.x, mouseWorldPos.y));
-
             spawnBullet(m_player, Vec2(sf::Mouse::getPosition(m_window).x,
                                        sf::Mouse::getPosition(m_window).y));
         }
@@ -286,8 +261,33 @@ void Game::sCollision() {
     // be sure to use the collision radius, NOT the shape radius
     //
     for (auto b : m_entityManager.getEntities("bullet")) {
+        auto position = b->get<CTransform>().pos;
+
+        if (position.x < 0 || position.x > 1280 || position.y < 0 ||
+            position.y > 720) {
+            b->destroy();
+        }
+
+        // TODO: doesnt work yet!
         for (auto e : m_entityManager.getEntities("enemy")) {
-            // calculate collosion
+            Vec2 diff = e->get<CTransform>().pos - b->get<CTransform>().pos;
+
+            double collisionRadiusSQ =
+                (b->get<CCollision>().radius + e->get<CCollision>().radius) *
+                (b->get<CCollision>().radius + e->get<CCollision>().radius);
+
+            double distSQ{(diff.x * diff.x) + (diff.y * diff.y)};
+
+            // double distSQ = diff.length();
+
+            if (distSQ < collisionRadiusSQ) {
+                std::cout << "Collision detected\n";
+                // add score to player
+                // spawnSmallEnemies();
+                e->destroy();
+                b->destroy();
+                break;
+            }
         }
     }
 }
