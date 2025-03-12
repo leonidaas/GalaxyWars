@@ -51,6 +51,7 @@ float Vec2::dist(const Vec2 &rhs) const {
 float Vec2::length() const { return std::sqrt((x * x) + (y * y)); }
 
 void Vec2::normalize() {
-    x /= x;
-    y /= y;
+    double L{std::sqrt(x * x + y * y)};
+    x /= L;
+    y /= L;
 }

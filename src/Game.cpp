@@ -1,41 +1,49 @@
 #include "Game.h"
 #include "Components.hpp"
+#include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Window/Mouse.hpp>
+#include <cmath>
+#include <iostream>
 #include <memory>
 
 Game::Game(const std::string &config) { init(config); }
 
 void Game::init(const std::string &path) {
-    // TODO read config fiel here,
+    // TODO read config file here,
     // use the premade PlayerConfig, EnemyConfig, BulletConfig Variables
+    //
+    // Changes the rand seed to spawn different "random" enemies
+    srand(time(0));
 
-    m_window.create(sf::VideoMode({1280, 720}), "Galaxy Wars");
+    m_window = sf::RenderWindow(sf::VideoMode({1280, 720}), "Galaxy Wars");
     m_window.setFramerateLimit(60);
 
     spawnPlayer();
+    m_running = true;
 }
 
-// some systems should function while paused(rendering)
-// some systems should not (sMovement / input)
 void Game::run() {
-    m_entityManager.update();
+    while (m_running) {
 
-    if (!m_paused) {
-        // figure out which systems should go inside here and which not
+        m_entityManager.update();
+
+        if (!m_paused) {
+            sEnemySpawner();
+            sMovement();
+            sEnemyMovement();
+            sBulletMovement();
+            // sCollision();
+        }
+
+        sUserInput();
+        sRender();
+
+        m_currentFrame++;
     }
-
-    sEnemySpawner();
-    sMovement();
-    sCollision();
-    sUserInput();
-    sRender();
-
-    m_currentFrame++;
+    m_window.close();
 }
 
-void Game::setPaused(bool paused) {
-    // implement
-}
+void Game::setPaused(bool paused) { m_paused = paused; }
 
 void Game::spawnPlayer() {
 
@@ -44,28 +52,37 @@ void Game::spawnPlayer() {
 
     auto entity = m_entityManager.addEntity("player");
 
-    entity->add<CTransform>(
-        std::make_shared<CTransform>(Vec2(200.f, 200.f), Vec2(1.f, 1.f), 0.0f));
+    entity->add<CTransform>(Vec2(200.f, 200.f), Vec2(1.f, 1.f), 0.0f);
 
-    entity->add<CShape>(std::make_shared<CShape>(32.f, 8, sf::Color(10, 10, 10),
-                                                 sf::Color(255, 0, 0), 4.f));
+    entity->add<CShape>(32.f, 8, sf::Color(10, 10, 10), sf::Color(255, 0, 0),
+                        4.f);
 
-    entity->add<CInput>(std::make_shared<CInput>());
+    entity->add<CInput>();
 
     m_player = entity;
 }
 
 void Game::spawnEnemy() {
+
+    // TODO: Spawn Enemy with random sizes and random colors and random speed
+
     auto entity = m_entityManager.addEntity("enemy");
 
-    // TODO: get random position
-    entity->add<CTransform>(
-        std::make_shared<CTransform>(Vec2(200.f, 200.f), Vec2(1.f, 1.f), 0.0f));
+    auto windowWidth = m_window.getSize().x;
+    auto windowHeight = m_window.getSize().y;
 
-    entity->add<CShape>(std::make_shared<CShape>(32.f, 8, sf::Color(10, 10, 10),
-                                                 sf::Color(255, 0, 0), 4.f));
+    auto positionX = rand() % windowWidth + 1.f;
+    auto positionY = rand() % windowHeight + 1.f;
 
-    entity->add<CInput>(std::make_shared<CInput>());
+    auto radius = rand() % 32 + 1.f;
+
+    entity->add<CTransform>(Vec2(positionX + radius, positionY + radius),
+                            Vec2(1.f, 1.f), 0.0f);
+
+    entity->add<CShape>(radius, 8, sf::Color(10, 10, 10), sf::Color(255, 0, 0),
+                        4.f);
+
+    entity->add<CInput>();
 
     m_lastEnemySpawnTime = m_currentFrame;
 }
@@ -85,55 +102,131 @@ void Game::spawnBullet(std::shared_ptr<Entity> entity, const Vec2 &target) {
     // bullet speed is given as a sclar speed
     // you must set the velocity by using formula in notes
     //
+    // cos(zeta) = X / R
+    // sin(zeta) = Y / R
+    // Vec2 velocity (S*cos(o), S*sin(o)) S = speed;
+    //
+    // TODO: Implement a bullet that starts at entity and travels to target
     auto bullet = m_entityManager.addEntity("bullet");
 
-    bullet->add<CTransform>(
-        std::make_shared<CTransform>(target, Vec2(0, 0), 0));
-    bullet->add<CShape>(std::make_shared<CShape>(
-        10, 8, sf::Color(255, 255, 255), sf::Color(255, 0, 0), 2));
+    auto distance = target - entity->get<CTransform>().pos;
+
+    std::cout << "Target X: " << distance.x << std::endl;
+    std::cout << "Target Y: " << distance.y << std::endl;
+
+    distance.normalize();
+
+    std::cout << "Normalized Target X: " << distance.x << std::endl;
+    std::cout << "Normalized Target Y: " << distance.y << std::endl;
+    // auto angle = std::atan2f(distance.y, distance.x);
+    // auto angleDegrees = angle * 180.f / M_PI;
+    //
+    auto speed = 10.f;
+
+    Vec2 velocity = Vec2(speed * distance.x, speed * distance.y);
+
+    bullet->add<CTransform>(entity->get<CTransform>().pos, velocity, 0);
+    bullet->add<CShape>(10, 8, sf::Color(255, 255, 255), sf::Color(255, 0, 0),
+                        2);
 }
 
 void Game::sRender() {
     m_window.clear();
 
-    // m_player->cShape->circle.setPosition(m_player->cTransform->pos.x,
-    // m_player->cTransform->pos.y);
-    //
-    // m_player->cTransform->angle += 1.0f;
-    // m_player->cShape->circle.setRotation(m_player->cTransform->angle);
-
-    // m_window.draw(m_player->cShape->circle);
-    //
     for (auto e : m_entityManager.getEntities()) {
+        auto shape = e->get<CShape>();
+        auto transform = e->get<CTransform>();
 
-        // e->cShape->circle.setPosition(e->cTransform->pos.x,
-        // e->cTransform->pos.y);
-        //
-        // e->cTransform->angle += 1.0f;
-        // e->cShape->circle.setRotation(e->cTransform->angle);
+        // m_player->cTransform->angle += 1.0f;
+        shape.circle.setPosition({transform.pos.x, transform.pos.y});
+        // shape.circle.setRotation(sf::degrees(transform.angle));
 
-        // m_window.draw(e->cShape->circle);
-        // m_window.draw(e->cShape->circle);
+        m_window.draw(shape.circle);
     }
 
     m_window.display();
 }
 
 void Game::sMovement() {
-    // TODO: implement all entity movement in this function
-    // you should read the m_player->cInput component to determine if the player
-    // is moving
-    // implement Player movement
-    //
+
+    int speed = 5;
+    // Player Movement
+    //  reset velocity to 0 before adding speed again
     m_player->get<CTransform>().velocity = {0, 0};
 
-    if (m_player->get<CInput>().up) {
+    switch (m_player->get<CInput>().currentInput) {
+    case EInput::UP:
         m_player->get<CTransform>().velocity.y = -5;
+        break;
+    case EInput::DOWN:
+        m_player->get<CTransform>().velocity.y = 5;
+        break;
+    case EInput::LEFT:
+        m_player->get<CTransform>().velocity.x = -5;
+        break;
+    case EInput::RIGHT:
+        m_player->get<CTransform>().velocity.x = 5;
+        break;
+    default:
+        break;
     }
 
-    // sample movemnent speed update
-    // m_player->cTransform->pos.x += m_player->cTransform->velocity.x;
-    // m_player->cTransform->pos.y += m_player->cTransform->velocity.y;
+    auto newPositionX = m_player->get<CTransform>().pos.x +
+                        m_player->get<CTransform>().velocity.x;
+    auto newPositionY = m_player->get<CTransform>().pos.y +
+                        m_player->get<CTransform>().velocity.y;
+
+    auto radius = m_player->get<CShape>().circle.getRadius();
+
+    if (newPositionX + radius <= m_window.getSize().x &&
+        newPositionX - radius >= 0) {
+        m_player->get<CTransform>().pos.x = newPositionX;
+    }
+    if (newPositionY + radius <= m_window.getSize().y &&
+        newPositionY - radius >= 0) {
+        m_player->get<CTransform>().pos.y = newPositionY;
+    }
+}
+
+void Game::sBulletMovement() {
+
+    for (auto e : m_entityManager.getEntities("bullet")) {
+
+        /*auto angle = e->get<CTransform>().angle;
+        auto newPositionX = e->get<CTransform>().pos.x +
+                            e->get<CTransform>().velocity.x * cos(angle);
+        auto newPositionY = e->get<CTransform>().pos.y +
+                            e->get<CTransform>().velocity.y * sin(angle);*/
+
+        e->get<CTransform>().pos.x += e->get<CTransform>().velocity.x;
+        e->get<CTransform>().pos.y += e->get<CTransform>().velocity.y;
+    }
+}
+
+void Game::sEnemyMovement() {
+    for (auto e : m_entityManager.getEntities("enemy")) {
+
+        auto newPositionX =
+            e->get<CTransform>().pos.x + e->get<CTransform>().velocity.x;
+        auto newPositionY =
+            e->get<CTransform>().pos.y + e->get<CTransform>().velocity.y;
+
+        auto radius = e->get<CShape>().circle.getRadius();
+
+        if (newPositionX + radius <= m_window.getSize().x &&
+            newPositionX - radius >= 0) {
+            e->get<CTransform>().pos.x = newPositionX;
+        } else {
+            e->get<CTransform>().velocity.x *= -1;
+        }
+
+        if (newPositionY + radius <= m_window.getSize().y &&
+            newPositionY - radius >= 0) {
+            e->get<CTransform>().pos.y = newPositionY;
+        } else {
+            e->get<CTransform>().velocity.y *= -1;
+        }
+    }
 }
 
 void Game::sUserInput() {
@@ -146,51 +239,40 @@ void Game::sUserInput() {
         if (const auto *keyPressed = event->getIf<sf::Event::KeyPressed>()) {
             switch (keyPressed->scancode) {
             case sf::Keyboard::Scancode::W:
-                m_player->get<CInput>().up = true;
+                m_player->get<CInput>().currentInput = EInput::UP;
                 break;
 
             case sf::Keyboard::Scancode::S:
-                m_player->get<CInput>().down = true;
+                m_player->get<CInput>().currentInput = EInput::DOWN;
                 break;
 
             case sf::Keyboard::Scancode::A:
-                m_player->get<CInput>().left = true;
+                m_player->get<CInput>().currentInput = EInput::LEFT;
                 break;
             case sf::Keyboard::Scancode::D:
-                m_player->get<CInput>().right = true;
+                m_player->get<CInput>().currentInput = EInput::RIGHT;
                 break;
             default:
+                m_player->get<CInput>().currentInput = EInput::IDLE;
                 break;
             }
         }
 
-        if (const auto *keyPressed = event->getIf<sf::Event::KeyReleased>()) {
-            switch (keyPressed->scancode) {
-            case sf::Keyboard::Scancode::W:
-                m_player->get<CInput>().up = false;
-                break;
-
-            case sf::Keyboard::Scancode::S:
-                m_player->get<CInput>().down = false;
-                break;
-
-            case sf::Keyboard::Scancode::A:
-                m_player->get<CInput>().left = false;
-                break;
-            case sf::Keyboard::Scancode::D:
-                m_player->get<CInput>().right = false;
-                break;
-            default:
-                break;
-            }
+        if (const auto *keyReleased = event->getIf<sf::Event::KeyReleased>()) {
+            m_player->get<CInput>().currentInput = EInput::IDLE;
         }
 
         if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left)) {
 
-            spawnBullet(m_player, Vec2(sf::Mouse::getPosition().x,
-                                       sf::Mouse::getPosition().y));
-            // event.mouseButton.x, event.mouseButton.y
-            // call spawn bullet here
+            std::cout << "X: " << sf::Mouse::getPosition(m_window).x
+                      << std::endl;
+            std::cout << "Y: " << sf::Mouse::getPosition(m_window).y
+                      << std::endl;
+
+            // spawnBullet(m_player, Vec2(mouseWorldPos.x, mouseWorldPos.y));
+
+            spawnBullet(m_player, Vec2(sf::Mouse::getPosition(m_window).x,
+                                       sf::Mouse::getPosition(m_window).y));
         }
 
         if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Right)) {
@@ -211,11 +293,12 @@ void Game::sCollision() {
 }
 
 void Game::sEnemySpawner() {
-    // TODO: implement enemy spawning
-    // use m_currentFrame - m_lastEnemySpawnTime to determine how long it has
-    // been since the last enemy spawned
-    //
-    spawnEnemy();
+    // TODO: use delay from config
+    const auto delay = 180;
+
+    if (m_currentFrame - m_lastEnemySpawnTime > delay) {
+        spawnEnemy();
+    }
 }
 
 /* void EntityManager::loadFromFile(const std::string &filename) {

@@ -2,6 +2,7 @@
 #include "Vec2.h"
 
 #include <SFML/Graphics.hpp>
+#include <ios>
 
 class Component {
 public:
@@ -16,6 +17,8 @@ public:
     CCollision(float r) : radius(r) {}
 };
 
+enum EInput { UP, DOWN, LEFT, RIGHT, SHOOT, IDLE };
+
 class CInput : public Component {
 public:
     int up = false;
@@ -23,6 +26,8 @@ public:
     int left = false;
     int right = false;
     int shoot = false;
+
+    EInput currentInput = EInput::IDLE;
 
     CInput() = default;
 };

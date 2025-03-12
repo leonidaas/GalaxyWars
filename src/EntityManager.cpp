@@ -1,5 +1,4 @@
 #include "EntityManager.h"
-#include "./Entity.hpp"
 #include <map>
 
 std::shared_ptr<Entity> EntityManager::addEntity(const std::string &tag) {
@@ -36,9 +35,9 @@ void EntityManager::update() {
 
     m_entitiesToAdd.clear(); // remove them as they are added to m_entities
 
-    removeDeadEntities(m_entities);
+    // removeDeadEntities(m_entities);
 
-    for (auto &[tag, entityVec] : m_entityMap) {
-        removeDeadEntities(entityVec);
-    }
+    /* for (auto &[tag, entityVec] : m_entityMap) {
+         removeDeadEntities(entityVec);
+     }*/
 }

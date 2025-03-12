@@ -1,5 +1,4 @@
-#include "Entity.hpp"
-#include "EntityManager.cpp"
+#include "EntityManager.h"
 #include <SFML/Graphics.hpp>
 
 struct PlayerConfig {
@@ -36,6 +35,8 @@ class Game {
     void setPaused(bool paused);
 
     void sMovement();
+    void sEnemyMovement();
+    void sBulletMovement();
     void sUserInput();
     void sLifespan();
     void sRender();
